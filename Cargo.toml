@@ -1,0 +1,62 @@
+[package]
+name = "dm-parser-sqllog"
+version = "0.1.0"
+edition = "2024"
+authors = ["guangluo"]
+description = "达梦数据库的 sqllog 日志解析和分析工具库"
+license = "MIT"
+repository = "https://github.com/guangl/sqllog-analysis"
+keywords = ["dm", "sqllog"]
+categories = []
+
+
+[lib]
+name = "dm-parser-sqllog"
+path = "src/lib.rs"
+
+[[bin]]
+name = "parser-sqllog"
+path = "src/main.rs"
+
+
+[dependencies]
+lazy_static = "1.5.0"
+regex = "1.11.3"
+thiserror = "2.0.17"
+chrono = "0.4.42"
+toml = "0.9.7"
+serde = { version = "1.0.228", features = ["derive"] }
+clap = { version = "4.5.48", features = ["derive"] }
+
+serde_json = { version = "1.0.145", optional = true }
+duckdb = { version = "1.4.0", features = ["bundled"], optional = true }
+rusqlite = { version = "0.37.0", features = ["bundled"], optional = true }
+tracing = { version = "0.1.41", optional = true }
+tracing-subscriber = { version = "0.3.20", optional = true }
+tracing-appender = { version = "0.2.3", optional = true }
+
+[dev-dependencies]
+tempfile = "3.0"
+
+[features]
+# 默认启用的 features
+default = ["std"]
+
+std = ["exporter-csv", "logging"]
+# 日志记录
+logging = ["dep:tracing", "dep:tracing-subscriber"]
+# 日志记录到 csv
+exporter-csv = []
+# 导出器为 json
+exporter-json = ["dep:serde_json"]
+# 导出器为 sqlite
+exporter-sqlite = ["dep:rusqlite"]
+# 为 duckdb 启用 bundled feature（你的项目已经在使用）
+exporter-duckdb = ["dep:duckdb"]
+
+all-exporters = [
+    "exporter-csv",
+    "exporter-json",
+    "exporter-sqlite",
+    "exporter-duckdb",
+]
