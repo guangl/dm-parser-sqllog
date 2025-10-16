@@ -3,6 +3,10 @@ thread_num = 4    # 线程数量
 batch_size = 1000 # 每次处理的行数
 path = "sqllog"   # 绝对路径与相对路径均可
 
+[logging]
+level = "info" # 日志级别: error, warn, info, debug, trace
+path = "logs"  # 日志输出文件路径，默认输出到控制台以及文件
+
 [error_exporter]
 path = "output/error.log" # 错误日志输出路径
 overwrite = true          # 是否覆盖已存在的文件

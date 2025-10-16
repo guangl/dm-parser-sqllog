@@ -1,3 +1,26 @@
-fn main() {
-    println!("Hello, world!");
+#[cfg(feature = "cli")]
+use clap::Parser;
+#[cfg(feature = "cli")]
+use dm_parser_sqllog::command::cli::Cli;
+
+fn main() -> Result<(), dm_parser_sqllog::LogError> {
+    #[cfg(feature = "logging")]
+    dm_parser_sqllog::init_default_logging()?;
+
+    #[cfg(feature = "cli")]
+    let cli = Cli::parse();
+
+    #[cfg(feature = "logging")]
+    tracing::info!("SQL 日志解析工具启动");
+
+    #[cfg(feature = "logging")]
+    tracing::info!("详细输出: {}", cli.verbose);
+
+    #[cfg(feature = "logging")]
+    tracing::info!("批处理大小: {}", cli.batch_size);
+
+    #[cfg(feature = "logging")]
+    tracing::info!("线程数量: {}", cli.thread_num);
+
+    Ok(())
 }
