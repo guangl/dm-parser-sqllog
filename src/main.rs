@@ -3,7 +3,9 @@ use clap::Parser;
 #[cfg(feature = "cli")]
 use dm_parser_sqllog::command::cli::Cli;
 
-fn main() -> Result<(), dm_parser_sqllog::LogError> {
+use dm_parser_sqllog::error::LogError;
+
+fn main() -> Result<(), LogError> {
     #[cfg(feature = "logging")]
     dm_parser_sqllog::init_default_logging()?;
 
