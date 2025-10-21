@@ -1,0 +1,30 @@
+[package]
+name = "parser-sqllog"
+version = "1.0.0"
+edition = "2024"
+authors = ["guangl"]
+description = "达梦数据库的 sqllog 日志解析工具"
+license = "MIT"
+repository = "https://github.com/guangl/dm-parser-sqllog"
+keywords = ["dm", "sqllog", "parser", "cli"]
+
+[dependencies]
+dm-database-parser = { path = "../dm-database-parser" }
+
+lazy_static = "1.5.0"
+thiserror = "2.0.17"
+
+# 序列化和反序列化相关依赖
+toml = "0.9.7"
+serde = { version = "1.0.228", features = ["derive"] }
+
+# 命令行解析相关依赖
+clap = { version = "4.5.48", features = ["derive"] }
+
+# 日志相关依赖
+tracing = { workspace = true }
+tracing-appender = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+
+[dev-dependencies]
+tempfile = "3.0"

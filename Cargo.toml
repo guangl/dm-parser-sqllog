@@ -1,48 +1,9 @@
-[package]
-name = "dm-parser-sqllog"
-version = "0.1.0"
-edition = "2024"
-authors = ["guangl"]
-description = "达梦数据库的 sqllog 日志解析和分析工具库"
-license = "MIT"
-repository = "https://github.com/guangl/dm-parser-sqllog"
-keywords = ["dm", "sqllog", "parser"]
-categories = []
+[workspace]
+members = ["parser-sqllog", "dm-database-parser"]
+resolver = "3"
 
-[lib]
-name = "dm_parser_sqllog"
-path = "src/lib.rs"
-
-[[bin]]
-name = "parser-sqllog"
-path = "src/main.rs"
-
-[dependencies]
-lazy_static = "1.5.0"
-regex = "1.11.3"
-thiserror = "2.0.17"
-chrono = "0.4.42"
-toml = "0.9.7"
-serde = { version = "1.0.228", features = ["derive"] }
-
-clap = { version = "4.5.48", features = ["derive"], optional = true }
-serde_json = { version = "1.0.145", optional = true }
-tracing = { version = "0.1.41", optional = true }
-tracing-subscriber = { version = "0.3.20", features = [
-    "env-filter",
-], optional = true }
-tracing-appender = { version = "0.2.3", optional = true }
-
-[dev-dependencies]
-tempfile = "3.0"
-
-[features]
-# 默认启用的 features
-default = ["std"]
-
-std = ["cli", "logging"]
-cli = ["dep:clap"]
-# 日志记录
-logging = ["dep:tracing", "dep:tracing-subscriber", "dep:tracing-appender"]
-
-all = ["std", "logging"]
+[workspace.dependencies]
+# 日志相关依赖
+tracing = { version = "0.1.41" }
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+tracing-appender = { version = "0.2.3" }
