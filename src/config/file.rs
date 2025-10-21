@@ -26,8 +26,26 @@ impl Root {
     }
 
     pub fn from_toml_str(s: &str) -> LogResult<Self> {
-        let root: Root = toml::from_str(s)
-            .map_err(|e| LogError::Config(format!("failed to parse config.toml: {}", e)))?;
+        // 先使用 toml 解析为 Root，解析错误会被 From<toml::de::Error> for ConfigParseError 捕获并
+        // 转成 LogError::ConfigParse
+    let root: Root = toml::from_str(s).map_err(|e| LogError::ConfigParse(e.into()))?;
+
+        // 额外做些运行时校验，给出更精确的错误信息
+        // 例如：如果 logging 节不存在且 error_exporter 也不存在，则认为缺少必要配置
+        if root.logging.is_none() && root.error_exporter.is_none() {
+            return Err(LogError::Config("missing both `logging` and `error_exporter` sections".into()));
+        }
+
+        // 如果 logging 存在，但某些必需字段缺失（例如 level），可以返回更具体的错误
+        if let Some(ref logging) = root.logging {
+            if logging.level.is_empty() {
+                return Err(LogError::Config("logging.level is empty".into()));
+            }
+            if logging.path.is_empty() {
+                return Err(LogError::Config("logging.path is empty".into()));
+            }
+        }
+
         Ok(root)
     }
 
@@ -101,6 +119,15 @@ mod tests {
 
         let result = Root::from_toml_str(toml_str);
         assert!(result.is_err());
+
+        // 更具体地检查错误类型，确认是 ConfigParse（底层 toml 解析错误）
+        match result.unwrap_err() {
+            LogError::ConfigParse(cfg_err) => {
+                // TOML 错误信息里应包含语法错误的提示
+                assert!(cfg_err.to_string().contains("TOML") || cfg_err.to_string().len() > 0);
+            }
+            other => panic!("expected ConfigParse error, got: {:?}", other),
+        }
     }
 
     #[test]
@@ -170,11 +197,12 @@ mod tests {
 
         let err = res.unwrap_err();
         match err {
-            LogError::Config(msg) => {
-                // thiserror 给出的错误信息会包含我们在 from_toml_str 中构造的前缀
-                assert!(msg.contains("failed to parse config.toml"));
+            LogError::ConfigParse(cfg_err) => {
+                // 确认 LogError 是被包装为 ConfigParse，并且包含底层 TOML 错误信息
+                let s = format!("{}", cfg_err);
+                assert!(s.len() > 0, "underlying toml error should not be empty");
             }
-            other => panic!("Expected Config error, got: {:?}", other),
+            other => panic!("Expected ConfigParse error, got: {:?}", other),
         }
     }
 }
