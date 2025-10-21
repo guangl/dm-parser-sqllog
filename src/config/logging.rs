@@ -1,4 +1,8 @@
+use std::path::Path;
+
 use serde::Deserialize;
+
+use crate::{ConfigParseResult, config::file::Root};
 
 #[derive(Default, Debug, Deserialize, Clone)]
 pub struct LogConfig {
@@ -16,6 +20,12 @@ impl LogConfig {
         }
     }
 
+    /// 从 TOML 字符串解析配置，便于单元测试和内存中解析。
+    pub fn from_file<P: AsRef<Path>>(path: P) -> ConfigParseResult<Self> {
+        let root = Root::from_file(path)?;
+        Ok(root.logging.unwrap_or_default())
+    }
+
     pub fn set_level(mut self, level: &str) -> Self {
         self.level = level.to_string();
         self
@@ -30,6 +40,8 @@ impl LogConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn default_log_config_has_expected_values() {
@@ -45,5 +57,20 @@ mod tests {
 
         assert_eq!(cfg.level, "debug".to_string());
         assert_eq!(cfg.path, "/tmp/mylogs".to_string());
+    }
+
+    #[test]
+    fn from_file_parses_config_correctly() {
+        let toml_str = r#"
+            [logging]
+            level = "error"
+            path = "/var/logs/errors"
+        "#;
+        let mut config_file = NamedTempFile::new().unwrap();
+        config_file.write_all(toml_str.as_bytes()).unwrap();
+        let config_content = LogConfig::from_file(config_file.path()).unwrap();
+
+        assert_eq!(config_content.level, "error".to_string());
+        assert_eq!(config_content.path, "/var/logs/errors".to_string());
     }
 }

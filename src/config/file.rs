@@ -2,7 +2,7 @@ use serde::Deserialize;
 use std::{fs, path::Path};
 
 use crate::{
-    config::{error_exporter::ErrorExporterConfig, logging::LogConfig},
+    config::{error_exporter::ErrorExporterConfig, logging::LogConfig, sqllog::SqllogConfig},
     error::{ConfigParseError, ConfigParseResult},
 };
 
@@ -10,6 +10,7 @@ use crate::{
 pub struct Root {
     pub logging: Option<LogConfig>,
     pub error_exporter: Option<ErrorExporterConfig>,
+    pub sqllog: Option<SqllogConfig>,
 }
 
 impl Root {
@@ -17,6 +18,7 @@ impl Root {
         Self {
             logging: None,
             error_exporter: None,
+            sqllog: None,
         }
     }
 
@@ -27,12 +29,6 @@ impl Root {
 
     pub fn from_toml_str(s: &str) -> ConfigParseResult<Self> {
         let root: Root = toml::from_str(s).map_err(ConfigParseError::Parser)?;
-
-        if root.logging.is_none() && root.error_exporter.is_none() {
-            return Err(ConfigParseError::MissingField(
-                "missing both `logging` and `error_exporter` sections".into(),
-            ));
-        }
 
         // 如果 logging 存在，但某些必需字段缺失（例如 level），可以返回更具体的错误
         if let Some(ref logging) = root.logging {

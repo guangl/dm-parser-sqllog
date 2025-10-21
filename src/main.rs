@@ -14,8 +14,6 @@ fn main() -> Result<(), LogError> {
         dm_parser_sqllog::init_default_logging()?;
         tracing::info!("SQL 日志解析工具启动");
         tracing::info!("详细输出: {}", cli.verbose);
-        tracing::info!("批处理大小: {}", cli.batch_size);
-        tracing::info!("线程数量: {}", cli.thread_num);
         tracing::info!("配置文件路径: {}", cli.config_path);
     }
 
