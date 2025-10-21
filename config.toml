@@ -1,11 +1,11 @@
 [sqllog]
-thread_num = 4    # 线程数量
-batch_size = 1000 # 每次处理的行数
-path = "sqllog"   # 绝对路径与相对路径均可
+thread_num = 0   # 线程数量
+batch_size = 0   # 每次处理的行数
+path = "sqllogs" # 绝对路径与相对路径均可
 
 [logging]
-level = "info" # 日志级别: error, warn, info, debug, trace
-path = "logs"  # 日志输出文件路径，默认输出到控制台以及文件
+level = "debug" # 日志级别，可选值：trace, debug, info, warn, error
+path = "logs"   # 日志文件路径
 
 [error_exporter]
 path = "output/error.log" # 错误日志输出路径

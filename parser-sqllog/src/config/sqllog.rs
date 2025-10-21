@@ -1,22 +1,39 @@
+use serde::Deserialize;
 use std::path::Path;
 
-use serde::Deserialize;
+use crate::config::file::Root;
 
-use crate::{ConfigParseResult, config::file::Root};
-
-#[derive(Default, Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct SqllogConfig {
     /// 批处理大小 (配置文件中键为 `batch-size`)
-    #[serde(default)]
+    #[serde(default = "default_batch_size")]
     pub batch_size: usize,
 
     /// 多线程处理
-    #[serde(default)]
+    #[serde(default = "default_thread_num")]
     pub thread_num: usize,
 
     /// 日志输出文件路径，默认输出到 sqllog 目录
-    #[serde(default, rename = "path")]
+    #[serde(default = "default_sqllog_path", rename = "path")]
     pub sqllog_path: String,
+}
+
+fn default_sqllog_path() -> String {
+    "sqllog".to_string()
+}
+
+fn default_thread_num() -> usize {
+    0
+}
+
+fn default_batch_size() -> usize {
+    0
+}
+
+impl Default for SqllogConfig {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SqllogConfig {
@@ -28,9 +45,9 @@ impl SqllogConfig {
         }
     }
 
-    pub fn from_file<P: AsRef<Path>>(path: P) -> ConfigParseResult<Self> {
-        let root = Root::from_file(path)?;
-        Ok(root.sqllog.unwrap_or_default())
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
+        let root = Root::from_file(path);
+        root.sqllog
     }
 
     pub fn set_batch_size(mut self, batch_size: usize) -> Self {
@@ -84,7 +101,7 @@ mod tests {
         "#;
         let mut config_file = NamedTempFile::new().unwrap();
         config_file.write_all(toml_str.as_bytes()).unwrap();
-        let config_content = SqllogConfig::from_file(config_file.path()).unwrap();
+        let config_content = SqllogConfig::from_file(config_file.path());
 
         assert_eq!(config_content.sqllog_path, "/var/logs/errors".to_string());
         assert_eq!(config_content.batch_size, 10);

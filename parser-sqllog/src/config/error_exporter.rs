@@ -1,22 +1,44 @@
+use serde::Deserialize;
 use std::path::Path;
 
 /// 错误导出配置
-use crate::{config::file::Root, error::ConfigParseResult};
-use serde::Deserialize;
+use crate::config::file::Root;
 
-#[derive(Default, Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ErrorExporterConfig {
     /// 错误日志导出路径 (配置文件中键为 `path`)
-    #[serde(rename = "path")]
+    #[serde(rename = "path", default = "default_error_log_path")]
     pub error_log_path: String,
 
     /// 是否覆盖已存在的文件
-    #[serde(default)]
+    #[serde(default = "default_overwrite")]
     pub overwrite: bool,
 
     /// 是否以追加的方式写入文件
-    #[serde(default)]
+    #[serde(default = "default_append")]
     pub append: bool,
+}
+
+fn default_error_log_path() -> String {
+    "error_logs".to_string()
+}
+
+fn default_overwrite() -> bool {
+    false
+}
+
+fn default_append() -> bool {
+    true
+}
+
+impl Default for ErrorExporterConfig {
+    fn default() -> Self {
+        Self {
+            error_log_path: "error_logs".to_string(),
+            overwrite: false,
+            append: true,
+        }
+    }
 }
 
 impl ErrorExporterConfig {
@@ -30,9 +52,9 @@ impl ErrorExporterConfig {
     }
 
     /// 从 TOML 字符串解析配置，便于单元测试和内存中解析。
-    pub fn from_file<P: AsRef<Path>>(path: P) -> ConfigParseResult<Self> {
-        let root = Root::from_file(path)?;
-        Ok(root.error_exporter.unwrap_or_default())
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
+        let root = Root::from_file(path);
+        root.error_exporter
     }
 
     /// 设置错误日志导出路径
@@ -90,7 +112,7 @@ mod tests {
         "#;
         let mut config_file = NamedTempFile::new().unwrap();
         config_file.write_all(toml_str.as_bytes()).unwrap();
-        let config_content = ErrorExporterConfig::from_file(config_file.path()).unwrap();
+        let config_content = ErrorExporterConfig::from_file(config_file.path());
 
         assert_eq!(
             config_content.error_log_path,

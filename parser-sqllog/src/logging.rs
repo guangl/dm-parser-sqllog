@@ -17,7 +17,7 @@ lazy_static! {
 /// 日志初始化
 /// 只需初始化一次，返回 LogResult<()>。
 /// 函数内部会持有 WorkerGuard 防止文件 appender 被提前关闭。
-pub fn init_logging(config: LogConfig) -> LogResult<()> {
+pub fn init_logging(config: &LogConfig) -> LogResult<()> {
     // 如果已经初始化则直接返回 Ok(())
     if LOG_GUARD
         .lock()
@@ -28,7 +28,7 @@ pub fn init_logging(config: LogConfig) -> LogResult<()> {
     }
     // 创建环境过滤器，默认使用配置的级别
     let env_filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(config.level));
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(config.level.clone()));
 
     // 控制台输出层
     let console_layer = fmt::layer()
@@ -76,5 +76,5 @@ pub fn init_logging(config: LogConfig) -> LogResult<()> {
 /// 使用默认参数初始化日志
 pub fn init_default_logging() -> LogResult<()> {
     let default_config = LogConfig::new();
-    init_logging(default_config)
+    init_logging(&default_config)
 }

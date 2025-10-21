@@ -1,15 +1,31 @@
+use serde::Deserialize;
 use std::path::Path;
 
-use serde::Deserialize;
+use crate::config::file::Root;
 
-use crate::{ConfigParseResult, config::file::Root};
-
-#[derive(Default, Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct LogConfig {
     /// 日志级别文本: "error", "warn", "info", "debug", "trace"
+    #[serde(default = "default_log_level")]
     pub level: String,
+
     /// 日志输出文件路径，默认输出到 logs 目录
+    #[serde(default = "default_log_path")]
     pub path: String,
+}
+
+fn default_log_level() -> String {
+    "info".to_string()
+}
+
+fn default_log_path() -> String {
+    "logs".to_string()
+}
+
+impl Default for LogConfig {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl LogConfig {
@@ -21,9 +37,9 @@ impl LogConfig {
     }
 
     /// 从 TOML 字符串解析配置，便于单元测试和内存中解析。
-    pub fn from_file<P: AsRef<Path>>(path: P) -> ConfigParseResult<Self> {
-        let root = Root::from_file(path)?;
-        Ok(root.logging.unwrap_or_default())
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
+        let root = Root::from_file(path);
+        root.logging
     }
 
     pub fn set_level(mut self, level: &str) -> Self {
@@ -68,7 +84,7 @@ mod tests {
         "#;
         let mut config_file = NamedTempFile::new().unwrap();
         config_file.write_all(toml_str.as_bytes()).unwrap();
-        let config_content = LogConfig::from_file(config_file.path()).unwrap();
+        let config_content = LogConfig::from_file(config_file.path());
 
         assert_eq!(config_content.level, "error".to_string());
         assert_eq!(config_content.path, "/var/logs/errors".to_string());
