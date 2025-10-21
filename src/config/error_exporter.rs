@@ -1,7 +1,7 @@
 use std::path::Path;
 
 /// 错误导出配置
-use crate::{config::file::Root, error::LogResult};
+use crate::{config::file::Root, error::ConfigParseResult};
 use serde::Deserialize;
 
 #[derive(Default, Debug, Clone, Deserialize)]
@@ -30,7 +30,7 @@ impl ErrorExporterConfig {
     }
 
     /// 从 TOML 字符串解析配置，便于单元测试和内存中解析。
-    pub fn from_file<P: AsRef<Path>>(path: P) -> LogResult<Self> {
+    pub fn from_file<P: AsRef<Path>>(path: P) -> ConfigParseResult<Self> {
         let root = Root::from_file(path)?;
         Ok(root.error_exporter.unwrap_or_default())
     }

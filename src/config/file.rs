@@ -1,9 +1,9 @@
 use serde::Deserialize;
-use std::path::Path;
+use std::{fs, path::Path};
 
 use crate::{
     config::{error_exporter::ErrorExporterConfig, logging::LogConfig},
-    error::{LogError, LogResult},
+    error::{ConfigParseError, ConfigParseResult},
 };
 
 #[derive(Debug, Deserialize, Default, Clone)]
@@ -20,29 +20,31 @@ impl Root {
         }
     }
 
-    pub fn from_file<P: AsRef<Path>>(path: P) -> LogResult<Self> {
-        let content = std::fs::read_to_string(path)?;
+    pub fn from_file<P: AsRef<Path>>(path: P) -> ConfigParseResult<Self> {
+        let content = fs::read_to_string(path).map_err(ConfigParseError::Io)?;
         Self::from_toml_str(&content)
     }
 
-    pub fn from_toml_str(s: &str) -> LogResult<Self> {
-        // 先使用 toml 解析为 Root，解析错误会被 From<toml::de::Error> for ConfigParseError 捕获并
-        // 转成 LogError::ConfigParse
-    let root: Root = toml::from_str(s).map_err(|e| LogError::ConfigParse(e.into()))?;
+    pub fn from_toml_str(s: &str) -> ConfigParseResult<Self> {
+        let root: Root = toml::from_str(s).map_err(ConfigParseError::Parser)?;
 
-        // 额外做些运行时校验，给出更精确的错误信息
-        // 例如：如果 logging 节不存在且 error_exporter 也不存在，则认为缺少必要配置
         if root.logging.is_none() && root.error_exporter.is_none() {
-            return Err(LogError::Config("missing both `logging` and `error_exporter` sections".into()));
+            return Err(ConfigParseError::MissingField(
+                "missing both `logging` and `error_exporter` sections".into(),
+            ));
         }
 
         // 如果 logging 存在，但某些必需字段缺失（例如 level），可以返回更具体的错误
         if let Some(ref logging) = root.logging {
             if logging.level.is_empty() {
-                return Err(LogError::Config("logging.level is empty".into()));
+                return Err(ConfigParseError::MissingField(
+                    "logging.level is empty".into(),
+                ));
             }
             if logging.path.is_empty() {
-                return Err(LogError::Config("logging.path is empty".into()));
+                return Err(ConfigParseError::MissingField(
+                    "logging.path is empty".into(),
+                ));
             }
         }
 
@@ -122,9 +124,9 @@ mod tests {
 
         // 更具体地检查错误类型，确认是 ConfigParse（底层 toml 解析错误）
         match result.unwrap_err() {
-            LogError::ConfigParse(cfg_err) => {
+            ConfigParseError::Parser(cfg_err) => {
                 // TOML 错误信息里应包含语法错误的提示
-                assert!(cfg_err.to_string().contains("TOML") || cfg_err.to_string().len() > 0);
+                assert!(cfg_err.to_string().contains("TOML") || !cfg_err.to_string().is_empty());
             }
             other => panic!("expected ConfigParse error, got: {:?}", other),
         }
@@ -179,8 +181,7 @@ mod tests {
         assert!(res.is_err(), "读取不存在的文件应该返回错误");
 
         match res {
-            Err(LogError::Io(e)) => {
-                // 检查底层 io::Error 的 kind
+            Err(ConfigParseError::Io(e)) => {
                 assert_eq!(e.kind(), std::io::ErrorKind::NotFound);
             }
             other => panic!("Expected Io error, got: {:?}", other),
@@ -189,7 +190,6 @@ mod tests {
 
     #[test]
     fn test_from_toml_str_returns_config_error_with_message() {
-        // 不合法的 TOML 内容会被转换为 LogError::Config
         let toml_str = "not a toml";
 
         let res = Root::from_toml_str(toml_str);
@@ -197,10 +197,9 @@ mod tests {
 
         let err = res.unwrap_err();
         match err {
-            LogError::ConfigParse(cfg_err) => {
-                // 确认 LogError 是被包装为 ConfigParse，并且包含底层 TOML 错误信息
+            ConfigParseError::Parser(cfg_err) => {
                 let s = format!("{}", cfg_err);
-                assert!(s.len() > 0, "underlying toml error should not be empty");
+                assert!(!s.is_empty(), "underlying toml error should not be empty");
             }
             other => panic!("Expected ConfigParse error, got: {:?}", other),
         }

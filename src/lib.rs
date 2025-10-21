@@ -11,7 +11,7 @@ pub use command::cli::Cli;
 #[cfg(feature = "logging")]
 pub use config::logging::LogConfig;
 #[cfg(feature = "logging")]
-pub use error::LogError;
+pub use error::ConfigParseResult;
 #[cfg(feature = "logging")]
 pub use logging::{init_default_logging, init_logging};
 

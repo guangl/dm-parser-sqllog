@@ -7,7 +7,7 @@ use tracing_subscriber::{
     prelude::*,
 };
 
-use crate::{LogConfig, LogError, error::LogResult};
+use crate::{LogConfig, error::LogError, error::LogResult};
 
 lazy_static! {
     // 保存 WorkerGuard 防止其被 drop。使用 Mutex 以便在多线程中安全写入一次。
