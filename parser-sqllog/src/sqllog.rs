@@ -1,0 +1,15 @@
+pub struct Sqllog {
+    pub sqllog_datetime: String,
+    pub ep: u8,
+    pub thread_id: i64,
+    pub username: String,
+    pub trxid: i64,
+    pub statement: String,
+    pub appname: String,
+    pub client_ip: String,
+    pub sql_type: String,
+    pub description: String,
+    pub execute_time: f32,
+    pub row_count: u32,
+    pub execute_id: i64,
+}

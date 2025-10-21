@@ -30,9 +30,38 @@ impl Root {
     }
 
     pub fn from_toml_str(s: &str) -> Self {
-        let root: Root = toml::from_str(s)
-            .map_err(ConfigParseError::Parser)
-            .unwrap_or_default();
+        // Start from defaults and apply any sections present in the TOML string.
+        let mut root = Root::default();
+
+        let s_trim = s.trim();
+        if s_trim.is_empty() {
+            return root;
+        }
+
+        // Parse into toml::Value to selectively merge sections.
+        let parsed: toml::Value = match toml::from_str(s) {
+            Ok(v) => v,
+            Err(_) => return root,
+        };
+
+        if let Some(logging_val) = parsed.get("logging") {
+            if let Ok(cfg) = logging_val.clone().try_into::<LogConfig>() {
+                root.logging = cfg;
+            }
+        }
+
+        if let Some(err_val) = parsed.get("error_exporter") {
+            if let Ok(cfg) = err_val.clone().try_into::<ErrorExporterConfig>() {
+                root.error_exporter = cfg;
+            }
+        }
+
+        if let Some(sqllog_val) = parsed.get("sqllog") {
+            if let Ok(cfg) = sqllog_val.clone().try_into::<SqllogConfig>() {
+                root.sqllog = cfg;
+            }
+        }
+
         root
     }
 
