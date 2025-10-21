@@ -4,7 +4,7 @@ use std::path::Path;
 use crate::{config::file::Root, error::LogResult};
 use serde::Deserialize;
 
-#[derive(Default, Debug, Deserialize)]
+#[derive(Default, Debug, Clone, Deserialize)]
 pub struct ErrorExporterConfig {
     /// 错误日志导出路径 (配置文件中键为 `path`)
     #[serde(rename = "path")]
@@ -89,9 +89,7 @@ mod tests {
             append = false
         "#;
         let mut config_file = NamedTempFile::new().unwrap();
-
         config_file.write_all(toml_str.as_bytes()).unwrap();
-
         let config_content = ErrorExporterConfig::from_file(config_file.path()).unwrap();
 
         assert_eq!(
@@ -99,6 +97,5 @@ mod tests {
             "/var/logs/errors".to_string()
         );
         assert!(config_content.overwrite);
-        assert!(!config_content.append);
     }
 }

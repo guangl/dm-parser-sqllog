@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-#[derive(Default, Debug, Deserialize)]
+#[derive(Default, Debug, Deserialize, Clone)]
 pub struct LogConfig {
     /// 日志级别文本: "error", "warn", "info", "debug", "trace"
     pub level: String,

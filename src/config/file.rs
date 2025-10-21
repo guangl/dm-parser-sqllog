@@ -6,7 +6,7 @@ use crate::{
     error::{LogError, LogResult},
 };
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default, Clone)]
 pub struct Root {
     pub logging: Option<LogConfig>,
     pub error_exporter: Option<ErrorExporterConfig>,
@@ -39,5 +39,142 @@ impl Root {
     pub fn set_error_exporter(mut self, error_exporter: ErrorExporterConfig) -> Self {
         self.error_exporter = Some(error_exporter);
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_root_from_toml_str() {
+        let toml_str = r#"
+            [logging]
+            level = "info"
+            path = "logs/app.log"
+
+            [error_exporter]
+            path = "error_logs"
+            overwrite = true
+            append = false
+        "#;
+
+        let root = Root::from_toml_str(toml_str).unwrap();
+
+        assert!(root.logging.is_some());
+        let logging = root.logging.unwrap();
+        assert_eq!(logging.level, "info");
+        assert_eq!(logging.path, "logs/app.log");
+
+        assert!(root.error_exporter.is_some());
+        let error_exporter = root.error_exporter.unwrap();
+        assert_eq!(error_exporter.error_log_path, "error_logs");
+        assert!(error_exporter.overwrite);
+        assert!(!error_exporter.append);
+    }
+
+    #[test]
+    fn test_root_from_toml_str_with_missing_sections() {
+        let toml_str = r#"
+            [logging]
+            level = "debug"
+            path = "logs/debug.log"
+        "#;
+
+        let root = Root::from_toml_str(toml_str).unwrap();
+
+        assert!(root.logging.is_some());
+        let logging = root.logging.unwrap();
+        assert_eq!(logging.level, "debug");
+        assert_eq!(logging.path, "logs/debug.log");
+
+        assert!(root.error_exporter.is_none());
+    }
+
+    #[test]
+    fn test_root_from_toml_str_with_invalid_toml() {
+        let toml_str = r#"
+            [logging
+            level = "info"
+            file_path = "logs/app.log"
+        "#;
+
+        let result = Root::from_toml_str(toml_str);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_root_default() {
+        let root = Root::new();
+        assert!(root.logging.is_none());
+        assert!(root.error_exporter.is_none());
+    }
+
+    #[test]
+    fn test_root_setters() {
+        let logging = LogConfig::new().set_level("warn").set_path("logs/warn.log");
+        let error_exporter = ErrorExporterConfig::new()
+            .set_error_log_path("error_logs")
+            .set_overwrite(true)
+            .set_append(false);
+
+        let root = Root::new()
+            .set_logging(logging.clone())
+            .set_error_exporter(error_exporter.clone());
+
+        assert!(root.logging.is_some());
+        assert_eq!(root.logging.clone().unwrap().level, logging.level);
+        assert_eq!(root.logging.clone().unwrap().path, logging.path);
+
+        assert!(root.error_exporter.is_some());
+        assert_eq!(
+            root.error_exporter.clone().unwrap().error_log_path,
+            error_exporter.error_log_path
+        );
+        assert_eq!(
+            root.error_exporter.clone().unwrap().overwrite,
+            error_exporter.overwrite
+        );
+        assert_eq!(
+            root.error_exporter.clone().unwrap().append,
+            error_exporter.append
+        );
+    }
+
+    #[test]
+    fn test_from_file_io_error_not_found() {
+        // 使用一个几乎不可能存在的临时文件路径来触发 I/O 错误（NotFound）
+        let tmp = std::env::temp_dir().join("this_file_should_not_exist_1234567890.toml");
+        // 确保不存在
+        let _ = std::fs::remove_file(&tmp);
+
+        let res = Root::from_file(&tmp);
+        assert!(res.is_err(), "读取不存在的文件应该返回错误");
+
+        match res {
+            Err(LogError::Io(e)) => {
+                // 检查底层 io::Error 的 kind
+                assert_eq!(e.kind(), std::io::ErrorKind::NotFound);
+            }
+            other => panic!("Expected Io error, got: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_from_toml_str_returns_config_error_with_message() {
+        // 不合法的 TOML 内容会被转换为 LogError::Config
+        let toml_str = "not a toml";
+
+        let res = Root::from_toml_str(toml_str);
+        assert!(res.is_err());
+
+        let err = res.unwrap_err();
+        match err {
+            LogError::Config(msg) => {
+                // thiserror 给出的错误信息会包含我们在 from_toml_str 中构造的前缀
+                assert!(msg.contains("failed to parse config.toml"));
+            }
+            other => panic!("Expected Config error, got: {:?}", other),
+        }
     }
 }

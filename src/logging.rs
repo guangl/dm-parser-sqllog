@@ -27,8 +27,8 @@ pub fn init_logging(config: LogConfig) -> LogResult<()> {
         return Ok(());
     }
     // 创建环境过滤器，默认使用配置的级别
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(config.level.to_string()));
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(config.level));
 
     // 控制台输出层
     let console_layer = fmt::layer()
