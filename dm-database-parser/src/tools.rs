@@ -1,0 +1,237 @@
+use daachorse::DoubleArrayAhoCorasick;
+use once_cell::sync::Lazy;
+
+// patterns are listed in the required order
+#[allow(dead_code)]
+static PATTERNS: &[&str] = &[
+    "EP[", "sess:", "thrd:", "user:", "trxid:", "stmt:", "appname:",
+];
+
+#[allow(dead_code)]
+static AC: Lazy<DoubleArrayAhoCorasick<usize>> = Lazy::new(|| {
+    // build automaton from byte patterns
+    let pats_bytes: Vec<&[u8]> = PATTERNS.iter().map(|s| s.as_bytes()).collect();
+    DoubleArrayAhoCorasick::new(&pats_bytes).unwrap()
+});
+
+#[inline(always)]
+pub fn is_ts_millis(s: &str) -> bool {
+    let bytes = s.as_bytes();
+    if bytes.len() != 23 {
+        return false;
+    }
+    // 固定符号位置
+    if bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || bytes[10] != b' '
+        || bytes[13] != b':'
+        || bytes[16] != b':'
+        || bytes[19] != b'.'
+    {
+        return false;
+    }
+    // 其余位置必须为数字
+    for &i in &[
+        0usize, 1, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15, 17, 18, 20, 21, 22,
+    ] {
+        if !bytes[i].is_ascii_digit() {
+            return false;
+        }
+    }
+    true
+}
+
+/// Byte-slice variant of `is_ts_millis` to avoid creating temporary `&str`
+/// slices when scanning large buffers. Expects exactly 23 bytes.
+#[inline(always)]
+pub fn is_ts_millis_bytes(bytes: &[u8]) -> bool {
+    if bytes.len() != 23 {
+        return false;
+    }
+    if bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || bytes[10] != b' '
+        || bytes[13] != b':'
+        || bytes[16] != b':'
+        || bytes[19] != b'.'
+    {
+        return false;
+    }
+    // digit positions (hardcoded indices)
+    for &i in &[
+        0usize, 1, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15, 17, 18, 20, 21, 22,
+    ] {
+        if !bytes[i].is_ascii_digit() {
+            return false;
+        }
+    }
+    true
+}
+
+/// 判断一行是否为 sqllog 的“记录起始行”。
+///
+/// 判定规则（严格匹配当前实现）：
+/// 1. 要求时间戳严格位于行首（不允许前导空白）；
+/// 2. 行首的前 23 个字符必须正好是时间戳，格式为 `YYYY-MM-DD HH:MM:SS.mmm`（由 `is_ts_millis` 验证）；
+/// 3. 在时间戳之后必须存在一对圆括号 `(...)`，括号内为元信息（metadata）；
+/// 4. 元信息中必须包含以下 7 个关键短语，且它们首次出现的顺序必须严格为：
+///    EP[ -> sess: -> thrd: -> user: -> trxid: -> stmt: -> appname:
+///
+/// 输入/输出：
+/// - 输入：单行文本 `line: &str`（可以包含前导空白）；
+/// - 输出：bool，若满足上述所有条件则返回 true，否则返回 false。
+///
+/// 复杂度与性能：
+/// - 使用 Double-Array Aho-Corasick (daachorse) 自动机一次扫描元信息（O(n + total_matches)），比多次 substring 查找更高效；
+/// - 该函数在最坏情况下仍然是线性相对输入长度的；
+/// - 适合在对大量日志行做快速分组时使用。
+///
+/// 边界情况与注意事项：
+/// - 关键字必须出现在括号内部；若关键字在括号外出现则视为不匹配；
+/// - 关键字匹配是基于文本子串（大小写敏感）；如果需要忽略大小写或支持更多变体，应在自动机构建时调整或归一化输入；
+/// - 只检查关键字的首次出现位置，以验证顺序；若关键字重复，只看第一次出现的位置；
+/// - 时间戳严格按字符位置校验，不尝试解析为日期/时间类型以节省分配与解析开销。
+pub fn is_record_start(line: &str) -> bool {
+    // 1) 要求时间戳严格从行首开始（不允许前导空白）
+    //    因为日志格式保证时间戳占据前 23 个字符的位置
+    if line.len() < 23 {
+        return false;
+    }
+
+    // 2) 校验时间戳格式（前 23 字符）
+    if !is_ts_millis(&line[0..23]) {
+        return false;
+    }
+
+    // 3) 在时间戳之后查找第一对圆括号，括号内为 metadata
+    let rest = &line[23..];
+    let open = match rest.find('(') {
+        Some(p) => p,
+        // 没有 '(' 则不是起始行
+        None => return false,
+    };
+    let close = match rest[open..].find(')') {
+        Some(p) => open + p,
+        // 没有匹配的 ')' 则不是起始行
+        None => return false,
+    };
+    // 元信息字符串（不包含括号）
+    let meta = &rest[open + 1..close];
+
+    // 4) 使用 Double-Array Aho-Corasick (daachorse) 在 meta 中一次扫描所有模式，记录每个模式的首次出现位置
+    //    patterns 的定义顺序就是我们要求的出现顺序（见静态 PATTERNS 定义）
+    let mut first_pos: [Option<usize>; 7] = [None, None, None, None, None, None, None];
+    for m in AC.find_iter(meta.as_bytes()) {
+        // daachorse 返回匹配的字节范围（start,end）以及关联的模式 id
+        let start = m.start();
+        // value() 返回模式对应的 id（在构造时按 PATTERNS 的顺序分配）
+        let id = m.value();
+        if id < first_pos.len() {
+            if first_pos[id].is_none() {
+                first_pos[id] = Some(start);
+            }
+        }
+    }
+
+    // 要求全部 7 个模式均出现
+    if first_pos.iter().any(|p| p.is_none()) {
+        return false;
+    }
+
+    // 验证首次出现位置严格递增，保证顺序为 EP -> sess -> thrd -> user -> trxid -> stmt -> appname
+    let mut prev: Option<usize> = None;
+    for p in &first_pos {
+        let cur = p.unwrap();
+        if let Some(prev_pos) = prev {
+            // 若当前位置小于等于前一个位置，说明顺序错误或重叠
+            if cur <= prev_pos {
+                return false;
+            }
+        }
+        prev = Some(cur);
+    }
+
+    true
+}
+
+/// Pre-warm the internal automaton and related static structures so that the
+/// first timed invocation does not include lazy-initialization allocations.
+#[allow(dead_code)]
+pub fn prewarm() {
+    // Force initialization of the static AC
+    let _ = &*AC;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_ts_millis() {
+        let valid_ts = "2023-10-05 14:23:45.123";
+        let invalid_ts_1 = "2023/10/05 14:23:45.123"; // wrong separators
+        let invalid_ts_2 = "2023-10-05 14:23:45"; // missing milliseconds
+        let invalid_ts_3 = "2023-10-05T14:23:45.123"; // wrong separator between date and time
+        let invalid_ts_4 = "2023-10-05 14:23:4a.123"; // non-digit character
+
+        assert!(is_ts_millis(valid_ts));
+        assert!(!is_ts_millis(invalid_ts_1));
+        assert!(!is_ts_millis(invalid_ts_2));
+        assert!(!is_ts_millis(invalid_ts_3));
+        assert!(!is_ts_millis(invalid_ts_4));
+    }
+
+    #[test]
+    fn test_is_record_start_basic() {
+        let line = "2025-08-12 10:57:09.561 (EP[0] sess:abc thrd:1 user:joe trxid:123 stmt:0x1 appname:my)";
+        assert!(is_record_start(line));
+    }
+
+    #[test]
+    fn test_is_record_start_different_order() {
+        // same keywords but wrong order should NOT be accepted now
+        let line = "2025-08-12 10:57:09.561 (user:joe appname:my trxid:123 thrd:1 sess:abc stmt:0x1 EP[0])";
+        assert!(!is_record_start(line));
+    }
+
+    #[test]
+    fn test_is_record_start_correct_order_complex() {
+        // interleaved but keeping required order EP -> sess -> thrd -> user -> trxid -> stmt -> appname
+        let line = "2025-08-12 10:57:09.561 (EP[0] foobar sess:abc baz thrd:1 qux user:joe trxid:123 stmt:0x1 zz appname:my)";
+        assert!(is_record_start(line));
+    }
+
+    #[test]
+    fn test_is_record_start_leading_whitespace() {
+        // 有前导空格的行现在不被接受（时间戳必须在行首）
+        let line = "   2025-08-12 10:57:09.561 (EP[0] sess:abc thrd:1 user:joe trxid:123 stmt:0x1 appname:my)";
+        assert!(!is_record_start(line));
+    }
+
+    #[test]
+    fn test_is_record_start_missing_keyword() {
+        let line = "2025-08-12 10:57:09.561 (EP[0] sess:abc thrd:1 trxid:123 stmt:0x1 appname:my)"; // missing user
+        assert!(!is_record_start(line));
+    }
+
+    #[test]
+    fn test_is_record_start_keyword_outside_parentheses() {
+        let line =
+            "2025-08-12 10:57:09.561 EP[0] sess:abc thrd:1 user:joe trxid:123 stmt:0x1 appname:my";
+        // since we require parentheses metadata, this should be false
+        assert!(!is_record_start(line));
+    }
+
+    #[test]
+    fn test_is_record_start_no_parentheses() {
+        let line = "2025-08-12 10:57:09.561 some random text";
+        assert!(!is_record_start(line));
+    }
+
+    #[test]
+    fn test_is_record_start_invalid_timestamp() {
+        let line =
+            "2025-08-12T10:57:09 (EP[0] sess:abc thrd:1 user:joe trxid:123 stmt:0x1 appname:my)";
+        assert!(!is_record_start(line));
+    }
+}

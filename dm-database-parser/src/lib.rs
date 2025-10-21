@@ -1,15 +1,12 @@
-// small helper retained
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+pub mod error;
+pub mod parser;
+pub mod sqllog;
+mod tools;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use error::ParseError;
+pub use parser::split_by_ts_records_with_errors;
+pub use parser::{for_each_record, parse_records_with, split_into};
+pub use sqllog::Sqllog;
+pub use tools::is_record_start;
+pub use tools::is_ts_millis;
+pub use tools::prewarm;
