@@ -154,11 +154,10 @@ pub fn is_record_start(line: &str) -> bool {
     true
 }
 
-/// Pre-warm the internal automaton and related static structures so that the
-/// first timed invocation does not include lazy-initialization allocations.
+/// 预热内部自动机和相关静态结构，以便第一次计时调用不包含延迟初始化分配。
 #[allow(dead_code)]
 pub fn prewarm() {
-    // Force initialization of the static AC
+    // 强制初始化静态 AC
     let _ = &*AC;
 }
 
@@ -169,10 +168,10 @@ mod tests {
     #[test]
     fn test_is_ts_millis() {
         let valid_ts = "2023-10-05 14:23:45.123";
-        let invalid_ts_1 = "2023/10/05 14:23:45.123"; // wrong separators
-        let invalid_ts_2 = "2023-10-05 14:23:45"; // missing milliseconds
-        let invalid_ts_3 = "2023-10-05T14:23:45.123"; // wrong separator between date and time
-        let invalid_ts_4 = "2023-10-05 14:23:4a.123"; // non-digit character
+        let invalid_ts_1 = "2023/10/05 14:23:45.123"; // 错误的分隔符
+        let invalid_ts_2 = "2023-10-05 14:23:45"; // 缺少毫秒部分
+        let invalid_ts_3 = "2023-10-05T14:23:45.123"; // 日期和时间之间分隔符错误
+        let invalid_ts_4 = "2023-10-05 14:23:4a.123"; // 包含非数字字符
 
         assert!(is_ts_millis(valid_ts));
         assert!(!is_ts_millis(invalid_ts_1));
@@ -189,14 +188,14 @@ mod tests {
 
     #[test]
     fn test_is_record_start_different_order() {
-        // same keywords but wrong order should NOT be accepted now
+        // 相同关键字但顺序错误现在不应被接受
         let line = "2025-08-12 10:57:09.561 (user:joe appname:my trxid:123 thrd:1 sess:abc stmt:0x1 EP[0])";
         assert!(!is_record_start(line));
     }
 
     #[test]
     fn test_is_record_start_correct_order_complex() {
-        // interleaved but keeping required order EP -> sess -> thrd -> user -> trxid -> stmt -> appname
+        // 关键字可能穿插出现，但仍需保持所需顺序 EP -> sess -> thrd -> user -> trxid -> stmt -> appname
         let line = "2025-08-12 10:57:09.561 (EP[0] foobar sess:abc baz thrd:1 qux user:joe trxid:123 stmt:0x1 zz appname:my)";
         assert!(is_record_start(line));
     }
@@ -210,7 +209,7 @@ mod tests {
 
     #[test]
     fn test_is_record_start_missing_keyword() {
-        let line = "2025-08-12 10:57:09.561 (EP[0] sess:abc thrd:1 trxid:123 stmt:0x1 appname:my)"; // missing user
+        let line = "2025-08-12 10:57:09.561 (EP[0] sess:abc thrd:1 trxid:123 stmt:0x1 appname:my)"; // 缺少 user
         assert!(!is_record_start(line));
     }
 
@@ -218,7 +217,7 @@ mod tests {
     fn test_is_record_start_keyword_outside_parentheses() {
         let line =
             "2025-08-12 10:57:09.561 EP[0] sess:abc thrd:1 user:joe trxid:123 stmt:0x1 appname:my";
-        // since we require parentheses metadata, this should be false
+        // 因为我们要求元数据位于括号内，因此应返回 false
         assert!(!is_record_start(line));
     }
 

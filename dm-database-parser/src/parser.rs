@@ -211,12 +211,12 @@ fn parse_digits_forward(s: &str, mut i: usize) -> Option<(u64, usize)> {
     Some((val, i))
 }
 
-/// Parse a single record (as produced by split_by_ts_records_with_errors)
-/// Returns a ParsedRecord borrowing from the input `rec`.
+/// 解析单条记录（由 split_by_ts_records_with_errors 生成）。
+/// 返回一个从输入 `rec` 借用的 ParsedRecord。
 pub fn parse_record<'a>(rec: &'a str) -> ParsedRecord<'a> {
     let ts: &'a str = if rec.len() >= 23 { &rec[..23] } else { "" };
 
-    // find first '(' after timestamp, then the matching ')'
+    // 在时间戳之后查找第一个 '('，然后查找对应的 ')'
     let after_ts: &'a str = if rec.len() > 23 { &rec[23..] } else { "" };
     let mut meta_raw: &'a str = "";
     let mut body: &'a str = "";
@@ -224,21 +224,21 @@ pub fn parse_record<'a>(rec: &'a str) -> ParsedRecord<'a> {
     if let Some(open_idx) = after_ts.find('(') {
         if let Some(close_rel) = after_ts[open_idx..].find(')') {
             meta_raw = &after_ts[open_idx + 1..open_idx + close_rel];
-            // body starts after the closing ')' character
+            // body 在闭合 ')' 字符之后开始
             let body_start = 23 + open_idx + close_rel + 1;
             if body_start < rec.len() {
                 body = rec[body_start..].trim_start();
             }
         } else {
-            // no closing paren: treat rest as body
+            // 没有闭合括号：将剩余部分视为 body
             body = after_ts;
         }
     } else {
-        // no meta parentheses: everything after ts is body
+        // 没有元数据括号：时间戳之后的全部内容都是 body
         body = after_ts;
     }
 
-    // parse meta tokens (borrowed slices)
+    // 解析元数据标记（借用切片）
     let mut ep: Option<&'a str> = None;
     let mut sess: Option<&'a str> = None;
     let mut thrd: Option<&'a str> = None;
@@ -263,17 +263,17 @@ pub fn parse_record<'a>(rec: &'a str) -> ParsedRecord<'a> {
         } else if tok.starts_with("stmt:") {
             stmt = Some(&tok[5..]);
         } else if tok == "appname:" {
-            // next token might be ip:::... or the appname value
+            // 下一个标记可能是 ip:::... 或 appname 的值
             if let Some(next) = iter.peek() {
                 if (*next).starts_with("ip:::") {
-                    // consume next and extract ip
+                    // 消费下一个标记并提取 ip
                     let nexttok = iter.next().unwrap();
                     let ippart = nexttok.trim_start_matches("ip:::");
                     let ipclean = ippart.trim_start_matches("ffff:");
                     ip = Some(ipclean);
                     appname = Some("");
                 } else {
-                    // take next as appname value
+                    // 将下一个标记作为 appname 值
                     let val = iter.next().unwrap();
                     appname = Some(val);
                 }
@@ -293,7 +293,7 @@ pub fn parse_record<'a>(rec: &'a str) -> ParsedRecord<'a> {
         }
     }
 
-    // parse numeric metrics from body from tail -> head: EXEC_ID -> ROWCOUNT -> EXECTIME
+    // 从 body 从尾到头解析数值指标：EXEC_ID -> ROWCOUNT -> EXECTIME
     let mut execute_id: Option<u64> = None;
     let mut row_count: Option<u64> = None;
     let mut execute_time_ms: Option<u64> = None;
