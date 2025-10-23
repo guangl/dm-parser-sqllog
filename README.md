@@ -1,6 +1,6 @@
-# DM-PARSER-SQLLOG
+# DM 日志解析器 (DM-PARSER-SQLLOG)
 
-## features
+## 功能
 
 多线程处理
 1. 根据 thread_count/filenums 取最小来创建解析线程；
