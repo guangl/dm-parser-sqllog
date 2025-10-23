@@ -1,4 +1,4 @@
-// ...existing code...
+// 省略的已有代码
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedRecord<'a> {
@@ -18,18 +18,18 @@ pub struct ParsedRecord<'a> {
     pub execute_id: Option<u64>,
 }
 
-/// Iterator that yields record slices (&str) from an input log text without allocating.
+/// 迭代器，从输入日志文本中产生记录切片(&str)，不进行额外分配。
 pub struct RecordSplitter<'a> {
     text: &'a str,
     bytes: &'a [u8],
     n: usize,
-    // scanning position: always non-decreasing
+    // 扫描位置：始终单调不减
     scan_pos: usize,
-    // the start index of the next record to yield
+    // 下一个要返回的记录的起始索引
     next_start: Option<usize>,
-    // whether we've yielded the final record already
+    // 是否已返回最后一条记录
     finished: bool,
-    // cached prefix (leading errors) end index
+    // 缓存的前缀（前导错误）结束索引
     first_start: Option<usize>,
 }
 
@@ -63,7 +63,7 @@ impl<'a> RecordSplitter<'a> {
         }
     }
 
-    /// Return the full slice of leading error text (everything before the first record)
+    /// 返回完整的前导错误文本切片（第一条记录之前的所有内容）
     pub fn leading_errors_slice(&self) -> Option<&'a str> {
         self.first_start.map(|s| &self.text[..s])
     }
@@ -84,9 +84,9 @@ impl<'a> Iterator for RecordSplitter<'a> {
             }
         };
 
-        // scan for the next record's start
+        // 扫描下一个记录的起始位置
         if self.scan_pos > self.n {
-            // no room for another ts, yield remainder
+            // 没有足够空间容纳另一个时间戳，返回剩余内容
             self.finished = true;
             return Some(&self.text[start..self.n]);
         }
@@ -96,9 +96,9 @@ impl<'a> Iterator for RecordSplitter<'a> {
             if (pos == 0 || self.bytes[pos - 1] == b'\n')
                 && crate::tools::is_ts_millis_bytes(&self.bytes[pos..pos + 23])
             {
-                // found next start
+                // 找到下一个起始位置
                 let end = pos;
-                // prepare for next call
+                // 为下一次调用做准备
                 self.next_start = Some(pos);
                 self.scan_pos = pos + 1;
                 return Some(&self.text[start..end]);
@@ -106,14 +106,14 @@ impl<'a> Iterator for RecordSplitter<'a> {
             pos += 1;
         }
 
-        // no next start => yield final record
+        // 没有下一个起始位置 => 返回最后一条记录
         self.finished = true;
         Some(&self.text[start..self.n])
     }
 }
 
-/// Split a full log text into records using timestamp-detection.
-/// Returns (records, leading_errors). Each record is a borrowed slice from `text`.
+/// 使用时间戳检测将完整日志文本拆分为记录。
+/// 返回 (records, leading_errors)。每条记录都是从 `text` 借用的切片。
 pub fn split_by_ts_records_with_errors<'a>(text: &'a str) -> (Vec<&'a str>, Vec<&'a str>) {
     let mut records: Vec<&'a str> = Vec::new();
     let mut errors: Vec<&'a str> = Vec::new();
@@ -130,11 +130,10 @@ pub fn split_by_ts_records_with_errors<'a>(text: &'a str) -> (Vec<&'a str>, Vec<
     (records, errors)
 }
 
-/// Split into caller-provided containers to avoid per-call allocations.
+/// 拆分到调用者提供的容器以避免每次调用分配。
 ///
-/// This function clears and fills `records` and `errors`. If callers reuse these
-/// vectors across repeated calls (e.g. in a loop), they can avoid allocating a
-/// fresh `Vec` on each call.
+/// 该函数会清空并填充 `records` 和 `errors`。如果调用者在重复调用中重用这些
+/// 向量（例如在循环中），则可以避免每次调用分配新的 `Vec`。
 pub fn split_into<'a>(text: &'a str, records: &mut Vec<&'a str>, errors: &mut Vec<&'a str>) {
     records.clear();
     errors.clear();
@@ -150,25 +149,23 @@ pub fn split_into<'a>(text: &'a str, records: &mut Vec<&'a str>, errors: &mut Ve
     }
 }
 
-/// Stream over records and invoke the callback for each record without
-/// allocating a Vec. This is the lowest-allocation way to process a log text.
+/// 对记录进行流式处理，并对每条记录调用回调而不分配 Vec。
+/// 这是处理日志文本时分配最少的方式。
 pub fn for_each_record<F>(text: &str, mut f: F)
 where
     F: FnMut(&str),
 {
     let splitter = RecordSplitter::new(text);
-    // ignore leading errors for the streaming API; callers can inspect them via
-    // RecordSplitter::leading_errors_slice if they need to.
+    // 对流式 API 忽略前导错误；如果需要，调用者可以通过 RecordSplitter::leading_errors_slice 检查它们。
     if let Some(_prefix) = splitter.leading_errors_slice() {
-        // drop the prefix borrow before iterating
+        // 在迭代之前释放前缀借用
     }
     for rec in splitter {
         f(rec);
     }
 }
 
-/// Parse each record and invoke callback with ParsedRecord; zero-allocation
-/// when used together with streaming Splitter.
+/// 解析每条记录并用 ParsedRecord 调用回调；与流式 Splitter 一起使用时实现零分配。
 pub fn parse_records_with<F>(text: &str, mut f: F)
 where
     F: for<'r> FnMut(ParsedRecord<'r>),
@@ -179,7 +176,7 @@ where
     });
 }
 
-/// Parse into a caller-provided Vec to avoid allocating a new Vec on each call.
+/// 解析到调用方提供的 Vec 中以避免每次调用分配新的 Vec。
 pub fn parse_into<'a>(text: &'a str, out: &mut Vec<ParsedRecord<'a>>) {
     out.clear();
     let splitter = RecordSplitter::new(text);
@@ -188,7 +185,7 @@ pub fn parse_into<'a>(text: &'a str, out: &mut Vec<ParsedRecord<'a>>) {
     }
 }
 
-/// Parse all records sequentially and return a Vec of ParsedRecord.
+/// 顺序解析所有记录并返回 ParsedRecord 的 Vec。
 pub fn parse_all(text: &str) -> Vec<ParsedRecord<'_>> {
     let splitter = RecordSplitter::new(text);
     splitter.map(|r| parse_record(r)).collect()
@@ -197,7 +194,7 @@ pub fn parse_all(text: &str) -> Vec<ParsedRecord<'_>> {
 fn parse_digits_forward(s: &str, mut i: usize) -> Option<(u64, usize)> {
     let bytes = s.as_bytes();
     let n = bytes.len();
-    // skip non-digits
+    // 跳过非数字
     while i < n && !bytes[i].is_ascii_digit() {
         i += 1;
     }

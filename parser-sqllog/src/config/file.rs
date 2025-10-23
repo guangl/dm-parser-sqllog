@@ -30,7 +30,7 @@ impl Root {
     }
 
     pub fn from_toml_str(s: &str) -> Self {
-        // Start from defaults and apply any sections present in the TOML string.
+    // 从默认值开始，并应用 TOML 字符串中存在的各个节。
         let mut root = Root::default();
 
         let s_trim = s.trim();
@@ -38,7 +38,7 @@ impl Root {
             return root;
         }
 
-        // Parse into toml::Value to selectively merge sections.
+    // 解析为 toml::Value 以便有选择地合并各个节。
         let parsed: toml::Value = match toml::from_str(s) {
             Ok(v) => v,
             Err(_) => return root,

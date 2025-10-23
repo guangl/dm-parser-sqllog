@@ -1,7 +1,7 @@
 use daachorse::DoubleArrayAhoCorasick;
 use once_cell::sync::Lazy;
 
-// patterns are listed in the required order
+// 模式按照要求的顺序列出
 #[allow(dead_code)]
 static PATTERNS: &[&str] = &[
     "EP[", "sess:", "thrd:", "user:", "trxid:", "stmt:", "appname:",
@@ -9,7 +9,7 @@ static PATTERNS: &[&str] = &[
 
 #[allow(dead_code)]
 static AC: Lazy<DoubleArrayAhoCorasick<usize>> = Lazy::new(|| {
-    // build automaton from byte patterns
+    // 从字节模式构建自动机
     let pats_bytes: Vec<&[u8]> = PATTERNS.iter().map(|s| s.as_bytes()).collect();
     DoubleArrayAhoCorasick::new(&pats_bytes).unwrap()
 });
@@ -41,8 +41,8 @@ pub fn is_ts_millis(s: &str) -> bool {
     true
 }
 
-/// Byte-slice variant of `is_ts_millis` to avoid creating temporary `&str`
-/// slices when scanning large buffers. Expects exactly 23 bytes.
+/// `is_ts_millis` 的字节切片变体，以避免在扫描大缓冲区时创建临时 `&str` 切片。
+/// 期望输入恰好为 23 字节。
 #[inline(always)]
 pub fn is_ts_millis_bytes(bytes: &[u8]) -> bool {
     if bytes.len() != 23 {
@@ -57,7 +57,7 @@ pub fn is_ts_millis_bytes(bytes: &[u8]) -> bool {
     {
         return false;
     }
-    // digit positions (hardcoded indices)
+    // 数字位置（硬编码索引）
     for &i in &[
         0usize, 1, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15, 17, 18, 20, 21, 22,
     ] {
