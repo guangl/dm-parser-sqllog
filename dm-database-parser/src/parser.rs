@@ -1,5 +1,3 @@
-// 省略的已有代码
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedRecord<'a> {
     pub ts: &'a str,
